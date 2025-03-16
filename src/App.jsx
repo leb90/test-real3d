@@ -73,6 +73,13 @@ function ARView() {
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 0);
+    renderer.xr.enabled = true; // Habilitar WebXR
+
+    // Variables para AR
+    let xrSession = null;
+    let xrRefSpace = null;
+    let hitTestSource = null;
+    let modelPlaced = false;
 
     // Añadir luces
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -110,75 +117,91 @@ function ARView() {
     loader.load('./logo.glb', (gltf) => {
       model = gltf.scene;
       model.scale.set(0.05, 0.05, 0.05);
-      model.position.set(0, 0, -2);
+      model.position.set(0, 0, 0);
       scene.add(model);
     });
 
-    // Variables para el seguimiento del dispositivo
-    let initialOrientation = null;
-    const DISTANCE_FROM_OBJECT = 2;
-
-    // Función para manejar la orientación del dispositivo
-    function handleDeviceOrientation(event) {
-      if (!model) return;
-
-      // Convertir grados a radianes
-      const alpha = event.alpha * (Math.PI / 180);
-      const beta = event.beta * (Math.PI / 180);
-      const gamma = event.gamma * (Math.PI / 180);
-
-      if (!initialOrientation) {
-        initialOrientation = { alpha, beta, gamma };
-        return;
-      }
-
-      // Calcular el cambio en la orientación
-      const deltaAlpha = alpha - initialOrientation.alpha;
-      const deltaBeta = beta - initialOrientation.beta;
-
-      // Calcular la nueva posición de la cámara
-      camera.position.x = DISTANCE_FROM_OBJECT * Math.sin(deltaAlpha);
-      camera.position.y = DISTANCE_FROM_OBJECT * Math.sin(deltaBeta);
-      camera.position.z = DISTANCE_FROM_OBJECT * Math.cos(deltaAlpha);
-
-      // Mantener la cámara mirando hacia el modelo
-      camera.lookAt(model.position);
-    }
-
-    // Función para iniciar la cámara
-    async function startCamera() {
+    // Función para iniciar AR
+    async function startAR() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: window.innerWidth },
-            height: { ideal: window.innerHeight }
-          } 
-        });
-        video.srcObject = stream;
-        await video.play();
-      } catch (error) {
-        console.error('Error al acceder a la cámara:', error);
-      }
-    }
-
-    // Función para iniciar el seguimiento de orientación
-    async function startDeviceOrientation() {
-      try {
-        if (typeof DeviceOrientationEvent !== 'undefined' && 
-            typeof DeviceOrientationEvent.requestPermission === 'function') {
-          // Para iOS 13+
-          const response = await DeviceOrientationEvent.requestPermission();
-          if (response === 'granted') {
-            window.addEventListener('deviceorientation', handleDeviceOrientation, true);
-          }
-        } else {
-          // Para otros dispositivos
-          window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+        if (!navigator.xr) {
+          instructions.innerHTML = 'WebXR no está disponible en tu navegador';
+          return;
         }
+
+        // Verificar soporte de AR
+        const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
+        if (!isSupported) {
+          instructions.innerHTML = 'AR no está soportado en tu dispositivo';
+          return;
+        }
+
+        // Iniciar sesión AR
+        xrSession = await navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['hit-test', 'local-floor'],
+          optionalFeatures: ['dom-overlay'],
+          domOverlay: { root: containerRef.current }
+        });
+
+        // Configurar renderer para AR
+        await renderer.xr.setSession(xrSession);
+
+        // Configurar espacio de referencia
+        xrRefSpace = await xrSession.requestReferenceSpace('local-floor');
+        const hitTestSourceInit = {
+          space: await xrSession.requestReferenceSpace('viewer')
+        };
+        hitTestSource = await xrSession.requestHitTestSource(hitTestSourceInit);
+
+        // Actualizar instrucciones
+        instructions.innerHTML = 'Apunta al suelo para colocar el modelo';
+
+        // Manejar fin de sesión
+        xrSession.addEventListener('end', () => {
+          xrSession = null;
+          hitTestSource = null;
+          modelPlaced = false;
+          instructions.innerHTML = 'Sesión AR finalizada';
+        });
+
+        // Iniciar bucle de renderizado AR
+        renderer.setAnimationLoop(renderAR);
+
       } catch (error) {
-        console.error('Error al configurar la orientación:', error);
+        console.error('Error al iniciar AR:', error);
+        instructions.innerHTML = 'Error al iniciar AR. Asegúrate de usar un dispositivo y navegador compatibles.';
       }
+    }
+
+    // Función de renderizado AR
+    function renderAR(timestamp, frame) {
+      if (!frame) return;
+
+      // Obtener pose
+      const pose = frame.getViewerPose(xrRefSpace);
+      if (!pose) return;
+
+      if (!modelPlaced && hitTestSource) {
+        const hitTestResults = frame.getHitTestResults(hitTestSource);
+        if (hitTestResults.length > 0) {
+          const hit = hitTestResults[0];
+          const hitPose = hit.getPose(xrRefSpace);
+
+          if (model && hitPose) {
+            // Colocar modelo en la posición del hit test
+            model.position.set(
+              hitPose.transform.position.x,
+              hitPose.transform.position.y,
+              hitPose.transform.position.z
+            );
+            modelPlaced = true;
+            instructions.innerHTML = 'Modelo colocado. Muévete alrededor para verlo.';
+          }
+        }
+      }
+
+      // Renderizar escena
+      renderer.render(scene, camera);
     }
 
     // Botón para iniciar la experiencia
@@ -194,22 +217,24 @@ function ARView() {
     startButton.style.borderRadius = '25px';
     startButton.style.fontSize = '16px';
     startButton.style.zIndex = '1000';
-    startButton.textContent = 'Iniciar Visualización 3D';
+    startButton.textContent = 'Iniciar AR';
+    
+    // Manejar clic del botón
     startButton.onclick = async () => {
-      await startCamera();
-      await startDeviceOrientation();
-      startButton.style.display = 'none';
+      try {
+        startButton.disabled = true;
+        startButton.textContent = 'Iniciando...';
+        await startAR();
+        startButton.style.display = 'none';
+      } catch (error) {
+        console.error('Error:', error);
+        startButton.disabled = false;
+        startButton.textContent = 'Reintentar';
+        instructions.innerHTML = 'Error al iniciar. Por favor, intenta de nuevo.';
+      }
     };
+    
     containerRef.current.appendChild(startButton);
-
-    // Función de animación
-    function animate() {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    }
-
-    // Iniciar animación
-    animate();
 
     // Instrucciones
     const instructions = document.createElement('div');
@@ -224,15 +249,29 @@ function ARView() {
     instructions.style.textAlign = 'center';
     instructions.style.maxWidth = '300px';
     instructions.style.zIndex = '1000';
-    instructions.innerHTML = 'Presiona el botón y mueve el dispositivo alrededor del objeto para verlo desde diferentes ángulos';
+    instructions.innerHTML = `
+      <p style="margin: 0 0 10px 0">Instrucciones:</p>
+      <ul style="text-align: left; margin: 0; padding-left: 20px;">
+        <li>Presiona "Iniciar AR"</li>
+        <li>Apunta al suelo donde quieras colocar el modelo</li>
+        <li>Una vez colocado, muévete alrededor para verlo</li>
+      </ul>
+    `;
     containerRef.current.appendChild(instructions);
+
+    // Función de animación
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    // Iniciar animación
+    animate();
 
     // Limpiar al desmontar
     return () => {
-      window.removeEventListener('deviceorientation', handleDeviceOrientation, true);
-      if (video.srcObject) {
-        const tracks = video.srcObject.getTracks();
-        tracks.forEach(track => track.stop());
+      if (xrSession) {
+        xrSession.end();
       }
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
