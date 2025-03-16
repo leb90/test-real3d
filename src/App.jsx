@@ -73,13 +73,12 @@ function ARView() {
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 0);
-    renderer.xr.enabled = true; // Habilitar WebXR
 
-    // Variables para AR
-    let xrSession = null;
-    let xrRefSpace = null;
-    let hitTestSource = null;
-    let modelPlaced = false;
+    // Variables para el control de la cámara
+    let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    let initialOrientation = null;
+    let isOrientationActive = false;
+    let cameraActive = false;
 
     // Añadir luces
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -102,6 +101,8 @@ function ARView() {
     video.style.height = '100%';
     video.style.objectFit = 'cover';
     video.style.zIndex = '0';
+    video.setAttribute('playsinline', '');
+    video.setAttribute('autoplay', '');
     mainContainer.appendChild(video);
 
     // Agregar canvas del renderer
@@ -117,91 +118,156 @@ function ARView() {
     loader.load('./logo.glb', (gltf) => {
       model = gltf.scene;
       model.scale.set(0.05, 0.05, 0.05);
-      model.position.set(0, 0, 0);
+      model.position.set(0, 0, -2);
       scene.add(model);
     });
 
-    // Función para iniciar AR
-    async function startAR() {
-      try {
-        if (!navigator.xr) {
-          instructions.innerHTML = 'WebXR no está disponible en tu navegador';
-          return;
-        }
+    // Variables para el seguimiento de movimiento
+    let lastAcceleration = { x: 0, y: 0, z: 0 };
+    let velocity = { x: 0, y: 0, z: 0 };
+    const damping = 0.95; // Factor de amortiguación
+    let isTracking = false;
 
-        // Verificar soporte de AR
-        const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-        if (!isSupported) {
-          instructions.innerHTML = 'AR no está soportado en tu dispositivo';
-          return;
-        }
+    // Función para manejar el movimiento del dispositivo
+    function handleDeviceMotion(event) {
+      if (!model || !isTracking) return;
 
-        // Iniciar sesión AR
-        xrSession = await navigator.xr.requestSession('immersive-ar', {
-          requiredFeatures: ['hit-test', 'local-floor'],
-          optionalFeatures: ['dom-overlay'],
-          domOverlay: { root: containerRef.current }
-        });
+      const acceleration = event.accelerationIncludingGravity;
+      if (!acceleration) return;
 
-        // Configurar renderer para AR
-        await renderer.xr.setSession(xrSession);
+      // Calcular el cambio en la aceleración
+      const deltaX = acceleration.x - lastAcceleration.x;
+      const deltaY = acceleration.y - lastAcceleration.y;
+      const deltaZ = acceleration.z - lastAcceleration.z;
 
-        // Configurar espacio de referencia
-        xrRefSpace = await xrSession.requestReferenceSpace('local-floor');
-        const hitTestSourceInit = {
-          space: await xrSession.requestReferenceSpace('viewer')
-        };
-        hitTestSource = await xrSession.requestHitTestSource(hitTestSourceInit);
+      // Actualizar velocidad con amortiguación
+      velocity.x = (velocity.x + deltaX * 0.1) * damping;
+      velocity.y = (velocity.y + deltaY * 0.1) * damping;
+      velocity.z = (velocity.z + deltaZ * 0.1) * damping;
 
-        // Actualizar instrucciones
-        instructions.innerHTML = 'Apunta al suelo para colocar el modelo';
+      // Actualizar posición del modelo
+      model.position.x += velocity.x;
+      model.position.y += velocity.y;
+      model.position.z += velocity.z;
 
-        // Manejar fin de sesión
-        xrSession.addEventListener('end', () => {
-          xrSession = null;
-          hitTestSource = null;
-          modelPlaced = false;
-          instructions.innerHTML = 'Sesión AR finalizada';
-        });
+      // Actualizar última aceleración
+      lastAcceleration = {
+        x: acceleration.x,
+        y: acceleration.y,
+        z: acceleration.z
+      };
 
-        // Iniciar bucle de renderizado AR
-        renderer.setAnimationLoop(renderAR);
+      // Mantener el modelo dentro de límites razonables
+      const maxDistance = 5;
+      model.position.x = THREE.MathUtils.clamp(model.position.x, -maxDistance, maxDistance);
+      model.position.y = THREE.MathUtils.clamp(model.position.y, -maxDistance, maxDistance);
+      model.position.z = THREE.MathUtils.clamp(model.position.z, -maxDistance, maxDistance);
 
-      } catch (error) {
-        console.error('Error al iniciar AR:', error);
-        instructions.innerHTML = 'Error al iniciar AR. Asegúrate de usar un dispositivo y navegador compatibles.';
-      }
+      // Hacer que el modelo mire hacia la cámara
+      model.lookAt(camera.position);
     }
 
-    // Función de renderizado AR
-    function renderAR(timestamp, frame) {
-      if (!frame) return;
+    // Función para manejar la orientación del dispositivo
+    function handleDeviceOrientation(event) {
+      if (!model || !isOrientationActive) return;
 
-      // Obtener pose
-      const pose = frame.getViewerPose(xrRefSpace);
-      if (!pose) return;
+      const alpha = event.alpha || 0;
+      const beta = event.beta || 0;
+      const gamma = event.gamma || 0;
 
-      if (!modelPlaced && hitTestSource) {
-        const hitTestResults = frame.getHitTestResults(hitTestSource);
-        if (hitTestResults.length > 0) {
-          const hit = hitTestResults[0];
-          const hitPose = hit.getPose(xrRefSpace);
-
-          if (model && hitPose) {
-            // Colocar modelo en la posición del hit test
-            model.position.set(
-              hitPose.transform.position.x,
-              hitPose.transform.position.y,
-              hitPose.transform.position.z
-            );
-            modelPlaced = true;
-            instructions.innerHTML = 'Modelo colocado. Muévete alrededor para verlo.';
-          }
-        }
+      if (!initialOrientation) {
+        initialOrientation = { alpha, beta, gamma };
+        isTracking = true;
+        return;
       }
 
-      // Renderizar escena
-      renderer.render(scene, camera);
+      // Actualizar la rotación del modelo
+      const eulerRotation = new THREE.Euler(
+        beta * Math.PI / 180,
+        alpha * Math.PI / 180,
+        -gamma * Math.PI / 180,
+        'YXZ'
+      );
+      model.quaternion.setFromEuler(eulerRotation);
+    }
+
+    // Función para iniciar la cámara
+    async function startCamera() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+        if (videoDevices.length === 0) {
+          throw new Error('No se encontraron cámaras disponibles');
+        }
+
+        // Crear selector de cámara
+        const cameraSelect = document.createElement('select');
+        cameraSelect.style.position = 'fixed';
+        cameraSelect.style.top = '80px';
+        cameraSelect.style.left = '50%';
+        cameraSelect.style.transform = 'translateX(-50%)';
+        cameraSelect.style.zIndex = '1000';
+        cameraSelect.style.padding = '8px';
+        cameraSelect.style.borderRadius = '4px';
+
+        videoDevices.forEach((device, index) => {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          option.text = device.label || `Cámara ${index + 1}`;
+          cameraSelect.appendChild(option);
+        });
+
+        containerRef.current.appendChild(cameraSelect);
+
+        // Función para cambiar de cámara
+        async function switchCamera() {
+          try {
+            if (video.srcObject) {
+              const tracks = video.srcObject.getTracks();
+              tracks.forEach(track => track.stop());
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: cameraSelect.value },
+                facingMode: isMobile ? 'environment' : 'user',
+                width: { ideal: window.innerWidth },
+                height: { ideal: window.innerHeight }
+              }
+            });
+
+            video.srcObject = stream;
+            await video.play();
+
+            // Solicitar permisos de orientación y movimiento en iOS
+            if (isMobile && typeof DeviceOrientationEvent.requestPermission === 'function') {
+              const permission = await DeviceOrientationEvent.requestPermission();
+              if (permission === 'granted') {
+                window.addEventListener('deviceorientation', handleDeviceOrientation);
+                window.addEventListener('devicemotion', handleDeviceMotion);
+                isOrientationActive = true;
+              }
+            } else {
+              window.addEventListener('deviceorientation', handleDeviceOrientation);
+              window.addEventListener('devicemotion', handleDeviceMotion);
+              isOrientationActive = true;
+            }
+
+            instructions.innerHTML = 'Mueve el dispositivo para mover el modelo en el espacio.';
+          } catch (error) {
+            console.error('Error al cambiar de cámara:', error);
+            instructions.innerHTML = 'Error al cambiar de cámara. Por favor, intenta de nuevo.';
+          }
+        }
+
+        cameraSelect.addEventListener('change', switchCamera);
+        await switchCamera();
+
+      } catch (error) {
+        console.error('Error al acceder a la cámara:', error);
+        instructions.innerHTML = 'Error al acceder a la cámara. Por favor, asegúrate de haber dado los permisos necesarios.';
+      }
     }
 
     // Botón para iniciar la experiencia
@@ -217,14 +283,13 @@ function ARView() {
     startButton.style.borderRadius = '25px';
     startButton.style.fontSize = '16px';
     startButton.style.zIndex = '1000';
-    startButton.textContent = 'Iniciar AR';
+    startButton.textContent = 'Iniciar Visualización 3D';
     
-    // Manejar clic del botón
     startButton.onclick = async () => {
       try {
         startButton.disabled = true;
         startButton.textContent = 'Iniciando...';
-        await startAR();
+        await startCamera();
         startButton.style.display = 'none';
       } catch (error) {
         console.error('Error:', error);
@@ -252,9 +317,9 @@ function ARView() {
     instructions.innerHTML = `
       <p style="margin: 0 0 10px 0">Instrucciones:</p>
       <ul style="text-align: left; margin: 0; padding-left: 20px;">
-        <li>Presiona "Iniciar AR"</li>
-        <li>Apunta al suelo donde quieras colocar el modelo</li>
-        <li>Una vez colocado, muévete alrededor para verlo</li>
+        <li>Presiona "Iniciar Visualización 3D"</li>
+        <li>Selecciona tu cámara preferida</li>
+        <li>Mueve el dispositivo para mover el modelo</li>
       </ul>
     `;
     containerRef.current.appendChild(instructions);
@@ -270,8 +335,11 @@ function ARView() {
 
     // Limpiar al desmontar
     return () => {
-      if (xrSession) {
-        xrSession.end();
+      window.removeEventListener('deviceorientation', handleDeviceOrientation);
+      window.removeEventListener('devicemotion', handleDeviceMotion);
+      if (video.srcObject) {
+        const tracks = video.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
       }
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
