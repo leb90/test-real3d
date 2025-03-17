@@ -74,6 +74,38 @@ function ARView() {
 
         // Crear la escena después de que los scripts estén cargados
         const sceneContainer = document.createElement('div');
+
+        // Configurar la cámara con zoom
+        let videoTrack = null;
+        const setupCamera = async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                facingMode: 'environment',
+                zoom: true
+              }
+            });
+            
+            videoTrack = stream.getVideoTracks()[0];
+            const capabilities = videoTrack.getCapabilities();
+            
+            // Configurar el rango de zoom si está disponible
+            if (capabilities.zoom) {
+              const zoomControl = document.querySelector('#zoom-control');
+              zoomControl.min = capabilities.zoom.min;
+              zoomControl.max = capabilities.zoom.max;
+              zoomControl.step = (capabilities.zoom.max - capabilities.zoom.min) / 20;
+              zoomControl.value = 1;
+            }
+          } catch (error) {
+            console.error('Error al configurar la cámara:', error);
+          }
+        };
+
+        setupCamera();
+
         sceneContainer.style.position = 'fixed';
         sceneContainer.style.top = '0';
         sceneContainer.style.left = '0';
@@ -161,56 +193,92 @@ function ARView() {
         controls.style.transform = 'translateX(-50%)';
         controls.style.backgroundColor = 'rgba(0,0,0,0.5)';
         controls.style.color = 'white';
-        controls.style.padding = '10px';
-        controls.style.borderRadius = '8px';
+        controls.style.padding = '10px 15px';
+        controls.style.borderRadius = '12px';
         controls.style.zIndex = '2000';
-        controls.style.fontSize = '12px';
-        controls.style.display = 'flex';
-        controls.style.flexDirection = 'column';
-        controls.style.alignItems = 'center';
-        controls.style.gap = '10px';
+        controls.style.width = 'auto';
+        controls.style.minWidth = '200px';
+        controls.style.maxWidth = '90%';
+        controls.style.backdropFilter = 'blur(5px)';
         controls.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <label for="zoom-control" style="font-size: 12px;">Zoom:</label>
-            <input 
-              type="range" 
-              id="zoom-control" 
-              min="1" 
-              max="5" 
-              step="0.1" 
-              value="1"
-              style="width: 100px;"
-            >
+          <div style="
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+          ">
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              width: 100%;
+              padding: 5px 0;
+            ">
+              <label for="zoom-control" style="font-size: 14px; white-space: nowrap;">Zoom:</label>
+              <input 
+                type="range" 
+                id="zoom-control" 
+                min="0.5" 
+                max="2" 
+                step="0.1" 
+                value="1"
+                style="
+                  width: 100%;
+                  height: 20px;
+                  border-radius: 10px;
+                  outline: none;
+                "
+              >
+              <span id="zoom-value" style="font-size: 12px; min-width: 30px;">1x</span>
+            </div>
+            <div style="
+              font-size: 11px;
+              opacity: 0.9;
+              text-align: center;
+              margin-top: 5px;
+              line-height: 1.3;
+            ">
+              <p style="margin: 0">Apunta la cámara al marcador Hiro</p>
+              <a 
+                href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" 
+                target="_blank"
+                style="
+                  color: #4CAF50;
+                  text-decoration: underline;
+                  font-size: 10px;
+                "
+              >
+                Ver Marcador
+              </a>
+            </div>
           </div>
-          <div style="font-size: 10px; opacity: 0.8; text-align: center;">
-            <p style="margin: 0">Apunta la cámara al marcador Hiro para ver el modelo 3D</p>
-            <p style="margin: 2px 0">Asegúrate de que el marcador esté bien iluminado</p>
-          </div>
-          <a 
-            href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" 
-            target="_blank"
-            style="
-              display: inline-block;
-              background-color: white;
-              color: black;
-              padding: 4px 8px;
-              text-decoration: none;
-              border-radius: 4px;
-              font-size: 10px;
-            "
-          >
-            Ver Marcador Hiro
-          </a>
         `;
         document.body.appendChild(controls);
 
         // Añadir funcionalidad al control de zoom
         const zoomControl = controls.querySelector('#zoom-control');
-        zoomControl.addEventListener('input', (event) => {
-          const zoom = parseFloat(event.target.value);
-          const camera = document.querySelector('[camera]');
-          if (camera) {
-            camera.setAttribute('position', `0 0 ${2 - zoom}`);
+        const zoomValue = controls.querySelector('#zoom-value');
+
+        zoomControl.addEventListener('input', async (event) => {
+          const zoomFactor = parseFloat(event.target.value);
+          zoomValue.textContent = `${zoomFactor}x`;
+          
+          if (videoTrack && videoTrack.getCapabilities().zoom) {
+            try {
+              await videoTrack.applyConstraints({
+                advanced: [{ zoom: zoomFactor }]
+              });
+            } catch (error) {
+              console.error('Error al aplicar zoom:', error);
+            }
+          } else {
+            // Fallback al zoom por escala si el zoom nativo no está disponible
+            const modelEntity = document.querySelector('[gltf-model]');
+            if (modelEntity) {
+              const baseScale = 0.05;
+              const newScale = baseScale * zoomFactor;
+              modelEntity.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+            }
           }
         });
 
