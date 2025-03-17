@@ -74,6 +74,26 @@ function ARView() {
 
         // Crear la escena después de que los scripts estén cargados
         const sceneContainer = document.createElement('div');
+        
+        // Configurar restricciones de la cámara
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const constraints = {
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 960 },
+              facingMode: 'environment',
+              zoom: 1,
+              focusMode: 'continuous'
+            }
+          };
+          
+          try {
+            await navigator.mediaDevices.getUserMedia(constraints);
+          } catch (error) {
+            console.error('Error al configurar la cámara:', error);
+          }
+        }
+
         sceneContainer.style.position = 'fixed';
         sceneContainer.style.top = '0';
         sceneContainer.style.left = '0';
@@ -83,7 +103,7 @@ function ARView() {
         sceneContainer.innerHTML = `
           <a-scene
             embedded
-            arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+            arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
             renderer="antialias: true; alpha: true"
             vr-mode-ui="enabled: false"
             loading-screen="enabled: false"
