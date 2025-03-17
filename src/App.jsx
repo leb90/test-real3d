@@ -204,17 +204,24 @@ function ARView() {
           <div style="
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
             align-items: center;
+            touch-action: none;
+            pointer-events: auto;
           ">
             <div style="
               display: flex;
               align-items: center;
-              gap: 10px;
+              gap: 15px;
               width: 100%;
-              padding: 5px 0;
+              padding: 8px 0;
+              touch-action: none;
             ">
-              <label for="zoom-control" style="font-size: 14px; white-space: nowrap;">Zoom:</label>
+              <label for="zoom-control" style="
+                font-size: 16px; 
+                white-space: nowrap;
+                user-select: none;
+              ">Zoom:</label>
               <input 
                 type="range" 
                 id="zoom-control" 
@@ -224,19 +231,28 @@ function ARView() {
                 value="1"
                 style="
                   width: 100%;
-                  height: 20px;
-                  border-radius: 10px;
+                  height: 30px;
+                  border-radius: 15px;
                   outline: none;
+                  -webkit-appearance: none;
+                  appearance: none;
+                  background: rgba(255,255,255,0.2);
+                  touch-action: none;
+                  cursor: pointer;
                 "
               >
-              <span id="zoom-value" style="font-size: 12px; min-width: 30px;">1x</span>
+              <span id="zoom-value" style="
+                font-size: 14px; 
+                min-width: 40px;
+                user-select: none;
+              ">1x</span>
             </div>
             <div style="
-              font-size: 11px;
+              font-size: 12px;
               opacity: 0.9;
               text-align: center;
-              margin-top: 5px;
-              line-height: 1.3;
+              line-height: 1.4;
+              user-select: none;
             ">
               <p style="margin: 0">Apunta la cámara al marcador Hiro</p>
               <a 
@@ -245,7 +261,9 @@ function ARView() {
                 style="
                   color: #4CAF50;
                   text-decoration: underline;
-                  font-size: 10px;
+                  font-size: 11px;
+                  padding: 8px 4px;
+                  display: inline-block;
                 "
               >
                 Ver Marcador
@@ -254,6 +272,51 @@ function ARView() {
           </div>
         `;
         document.body.appendChild(controls);
+
+        // Estilizar el control deslizante para móviles
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = `
+          #zoom-control::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            border: 2px solid rgba(0,0,0,0.2);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          }
+          #zoom-control::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            border: 2px solid rgba(0,0,0,0.2);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          }
+          #zoom-control:active::-webkit-slider-thumb {
+            background: #e0e0e0;
+          }
+          #zoom-control:active::-moz-range-thumb {
+            background: #e0e0e0;
+          }
+        `;
+        document.head.appendChild(styleSheet);
+
+        // Prevenir eventos táctiles no deseados
+        controls.addEventListener('touchstart', (e) => {
+          if (e.target.id !== 'zoom-control') {
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        controls.addEventListener('touchmove', (e) => {
+          if (e.target.id !== 'zoom-control') {
+            e.preventDefault();
+          }
+        }, { passive: false });
 
         // Añadir funcionalidad al control de zoom
         const zoomControl = controls.querySelector('#zoom-control');
