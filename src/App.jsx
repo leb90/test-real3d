@@ -74,26 +74,6 @@ function ARView() {
 
         // Crear la escena después de que los scripts estén cargados
         const sceneContainer = document.createElement('div');
-        
-        // Configurar restricciones de la cámara
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          const constraints = {
-            video: {
-              width: { ideal: 1280 },
-              height: { ideal: 960 },
-              facingMode: 'environment',
-              zoom: 1,
-              focusMode: 'continuous'
-            }
-          };
-          
-          try {
-            await navigator.mediaDevices.getUserMedia(constraints);
-          } catch (error) {
-            console.error('Error al configurar la cámara:', error);
-          }
-        }
-
         sceneContainer.style.position = 'fixed';
         sceneContainer.style.top = '0';
         sceneContainer.style.left = '0';
@@ -103,7 +83,7 @@ function ARView() {
         sceneContainer.innerHTML = `
           <a-scene
             embedded
-            arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
+            arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
             renderer="antialias: true; alpha: true"
             vr-mode-ui="enabled: false"
             loading-screen="enabled: false"
@@ -112,12 +92,23 @@ function ARView() {
               <a-asset-item id="model" src="./logo.glb"></a-asset-item>
             </a-assets>
 
-            <a-marker preset="hiro" smooth="true" smoothCount="5">
+            <a-marker 
+              preset="hiro" 
+              smooth="true" 
+              smoothCount="10"
+              smoothTolerance="0.05"
+              smoothThreshold="5"
+              raycaster="objects: .clickable"
+              emitevents="true"
+              cursor="fuse: false; rayOrigin: mouse;"
+            >
               <a-entity
                 position="0 0.05 0"
                 scale="0.05 0.05 0.05"
                 rotation="-90 0 0"
                 gltf-model="#model"
+                class="clickable"
+                visible="true"
               >
                 <a-entity
                   animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 8000; easing: linear; loop: true"
@@ -162,20 +153,39 @@ function ARView() {
           });
         }, 1000);
 
-        // Añadir instrucciones
-        const instructions = document.createElement('div');
-        instructions.style.position = 'fixed';
-        instructions.style.top = '20px';
-        instructions.style.left = '50%';
-        instructions.style.transform = 'translateX(-50%)';
-        instructions.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        instructions.style.color = 'white';
-        instructions.style.padding = '15px';
-        instructions.style.borderRadius = '8px';
-        instructions.style.zIndex = '2000';
-        instructions.innerHTML = `
-          <p style="margin: 0 0 10px 0">Apunta la cámara al marcador Hiro para ver el modelo 3D</p>
-          <p style="margin: 0 0 10px 0; font-size: 12px;">Asegúrate de que el marcador esté bien iluminado y visible</p>
+        // Añadir instrucciones y controles
+        const controls = document.createElement('div');
+        controls.style.position = 'fixed';
+        controls.style.bottom = '20px';
+        controls.style.left = '50%';
+        controls.style.transform = 'translateX(-50%)';
+        controls.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        controls.style.color = 'white';
+        controls.style.padding = '10px';
+        controls.style.borderRadius = '8px';
+        controls.style.zIndex = '2000';
+        controls.style.fontSize = '12px';
+        controls.style.display = 'flex';
+        controls.style.flexDirection = 'column';
+        controls.style.alignItems = 'center';
+        controls.style.gap = '10px';
+        controls.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label for="zoom-control" style="font-size: 12px;">Zoom:</label>
+            <input 
+              type="range" 
+              id="zoom-control" 
+              min="1" 
+              max="5" 
+              step="0.1" 
+              value="1"
+              style="width: 100px;"
+            >
+          </div>
+          <div style="font-size: 10px; opacity: 0.8; text-align: center;">
+            <p style="margin: 0">Apunta la cámara al marcador Hiro para ver el modelo 3D</p>
+            <p style="margin: 2px 0">Asegúrate de que el marcador esté bien iluminado</p>
+          </div>
           <a 
             href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" 
             target="_blank"
@@ -183,23 +193,33 @@ function ARView() {
               display: inline-block;
               background-color: white;
               color: black;
-              padding: 8px 16px;
+              padding: 4px 8px;
               text-decoration: none;
               border-radius: 4px;
-              font-size: 14px;
+              font-size: 10px;
             "
           >
             Ver Marcador Hiro
           </a>
         `;
-        document.body.appendChild(instructions);
+        document.body.appendChild(controls);
+
+        // Añadir funcionalidad al control de zoom
+        const zoomControl = controls.querySelector('#zoom-control');
+        zoomControl.addEventListener('input', (event) => {
+          const zoom = parseFloat(event.target.value);
+          const camera = document.querySelector('[camera]');
+          if (camera) {
+            camera.setAttribute('position', `0 0 ${2 - zoom}`);
+          }
+        });
 
         return () => {
           if (sceneContainer && sceneContainer.parentNode) {
             sceneContainer.parentNode.removeChild(sceneContainer);
           }
-          if (instructions && instructions.parentNode) {
-            instructions.parentNode.removeChild(instructions);
+          if (controls && controls.parentNode) {
+            controls.parentNode.removeChild(controls);
           }
         };
       };
