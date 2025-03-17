@@ -94,12 +94,15 @@ function ARView() {
 
             <a-marker preset="hiro" smooth="true" smoothCount="5">
               <a-entity
-                position="0 0.5 0"
-                scale="0.5 0.5 0.5"
+                position="0 0.05 0"
+                scale="0.05 0.05 0.05"
                 rotation="-90 0 0"
                 gltf-model="#model"
-                animation="property: rotation; to: -90 360 0; dur: 5000; easing: linear; loop: true"
-              ></a-entity>
+              >
+                <a-entity
+                  animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 8000; easing: linear; loop: true"
+                ></a-entity>
+              </a-entity>
             </a-marker>
             <a-entity camera></a-entity>
           </a-scene>
