@@ -115,13 +115,13 @@ function ARView() {
         sceneContainer.innerHTML = `
           <a-scene
             embedded
-            arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+            arjs="sourceType: webcam; debugUIEnabled: true; detectionMode: mono_and_matrix; matrixCodeType: 3x3; sourceWidth: 1280; sourceHeight: 960; displayWidth: window.innerWidth; displayHeight: window.innerHeight;"
             renderer="antialias: true; alpha: true"
             vr-mode-ui="enabled: false"
-            loading-screen="enabled: false"
+            loading-screen="enabled: true"
           >
             <a-assets>
-              <a-asset-item id="model" src="./logo.glb"></a-asset-item>
+              <a-asset-item id="model" src="/logo.glb"></a-asset-item>
             </a-assets>
 
             <a-marker 
@@ -147,7 +147,7 @@ function ARView() {
                 ></a-entity>
               </a-entity>
             </a-marker>
-            <a-entity camera></a-entity>
+            <a-entity camera="userHeight: 1.6; fov: 80"></a-entity>
           </a-scene>
         `;
         document.body.appendChild(sceneContainer);
@@ -164,6 +164,7 @@ function ARView() {
             const modelEl = marker.querySelector('[gltf-model]');
             if (modelEl) {
               modelEl.setAttribute('visible', true);
+              console.log('Modelo visible');
             }
           });
 
@@ -172,17 +173,39 @@ function ARView() {
             const modelEl = marker.querySelector('[gltf-model]');
             if (modelEl) {
               modelEl.setAttribute('visible', false);
+              console.log('Modelo oculto');
             }
           });
 
           // Eventos del modelo
           model.addEventListener('model-loaded', () => {
             console.log('Modelo cargado correctamente');
+            // Intentar hacer el modelo visible inmediatamente
+            model.setAttribute('visible', true);
           });
 
           model.addEventListener('model-error', (error) => {
             console.error('Error al cargar el modelo:', error);
+            // Mostrar mensaje de error al usuario
+            const errorMessage = document.createElement('div');
+            errorMessage.style.position = 'fixed';
+            errorMessage.style.top = '20px';
+            errorMessage.style.left = '50%';
+            errorMessage.style.transform = 'translateX(-50%)';
+            errorMessage.style.backgroundColor = 'rgba(255,0,0,0.8)';
+            errorMessage.style.color = 'white';
+            errorMessage.style.padding = '10px';
+            errorMessage.style.borderRadius = '5px';
+            errorMessage.style.zIndex = '9999';
+            errorMessage.textContent = 'Error al cargar el modelo 3D. Por favor, recarga la página.';
+            document.body.appendChild(errorMessage);
           });
+
+          // Verificar si el modelo está cargado
+          if (model.components['gltf-model'].model) {
+            console.log('Modelo ya cargado');
+            model.setAttribute('visible', true);
+          }
         }, 1000);
 
         // Añadir instrucciones y controles
@@ -301,6 +324,10 @@ function ARView() {
           }
           #zoom-control:active::-moz-range-thumb {
             background: #e0e0e0;
+          }
+          /* Corregir la orientación de la cámara */
+          .a-canvas {
+            transform: scaleX(-1) !important;
           }
         `;
         document.head.appendChild(styleSheet);
