@@ -67,12 +67,18 @@ export function ARView() {
           <a-scene
             embedded
             arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-            renderer="antialias: true; alpha: true"
+            renderer="antialias: true; 
+                     alpha: true; 
+                     colorManagement: true; 
+                     sortObjects: true;
+                     physicallyCorrectLights: false;
+                     gammaOutput: true;
+                     exposure: 2.0;"
             vr-mode-ui="enabled: false"
             loading-screen="enabled: false"
           >
             <a-assets>
-              <a-asset-item id="model" src="/logo.glb"></a-asset-item>
+              <a-asset-item id="model" src="/scene.glb"></a-asset-item>
             </a-assets>
 
             <a-marker 
