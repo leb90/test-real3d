@@ -67,14 +67,13 @@ export function ARView() {
                 gltf-model="#model"
                 class="clickable"
                 visible="true"
-                camera="zoom: 1;"
               >
                 <a-entity
                   animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 8000; easing: linear; loop: true"
                 ></a-entity>
               </a-entity>
             </a-marker>
-            <a-entity camera></a-entity>
+            <a-entity camera="zoom: 1;"></a-entity>
           </a-scene>
         `;
         document.body.appendChild(sceneContainer);
