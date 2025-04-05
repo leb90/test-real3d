@@ -24,7 +24,7 @@ export function ARView() {
       // AR.js
       await new Promise(resolve => {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js';
+        script.src = '/aframe-ar.js';
         script.onload = resolve;
         document.head.appendChild(script);
       });
