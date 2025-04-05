@@ -13,26 +13,26 @@
   </head>
 
   <body style="margin: 0px; overflow: hidden">
-
     <a-scene
       embedded
       arjs="detectionMode: mono_and_matrix; matrixCodeType: 3x3_HAMMING63;"
-      renderer="antialias: true; alpha: true; logarithmicDepthBuffer: true; colorManagement: true; sortObjects: true; physicallyCorrectLights: true; gammaOutput: true; exposure: 4.0; highRefreshRate: false;"
-
-      
+      renderer="antialias: true; alpha: true; logarithmicDepthBuffer: true; colorManagement: true; sortObjects: true; physicallyCorrectLights: false; gammaOutput: true; exposure: 4.0; highRefreshRate: false;"
       vr-mode-ui="enabled: false"
       switch-camera
     >
       <a-assets>
-        <a-asset-item
-          id="bowser"
-          src="scene.glb"
-        >
-        </a-asset-item>
+        <a-asset-item id="bowser" src="scene.glb"> </a-asset-item>
       </a-assets>
-      <a-marker type="barcode" value="0">
+      <a-marker
+        type="barcode"
+        value="0"
+        smooth="true"
+        smoothCount="10"
+        smoothTolerance="0.01"
+        smoothThreshold="2"
+      >
         <a-entity
-          position="0 3 0"
+          position="0 3 -0.2"
           scale="0.09 0.09 0.09"
           gltf-model="#bowser"
           rotation="-90 -90 0"
