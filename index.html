@@ -13,8 +13,7 @@
   </head>
 
   <body style="margin: 0px; overflow: hidden">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+
     <a-scene
       embedded
       arjs="detectionMode: mono_and_matrix; matrixCodeType: 3x3_HAMMING63;"
@@ -41,7 +40,8 @@
       </a-marker>
       <a-entity camera></a-entity>
     </a-scene>
-
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
   </body>
 </html>
