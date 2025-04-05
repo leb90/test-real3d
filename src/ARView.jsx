@@ -77,7 +77,12 @@ export function ARView() {
           </a-scene>
         `;
         document.body.appendChild(sceneContainer);
-
+        
+        document.querySelector('a-scene').addEventListener('loaded', () => {
+          controls.style.zIndex = '9999'; // importante, asegura que esté arriba
+          document.body.appendChild(controls); // inserta acá
+        });
+        
         // Añadir eventos para depuración
         setTimeout(() => {
           const scene = document.querySelector('a-scene');
@@ -197,7 +202,6 @@ export function ARView() {
             </div>
           </div>
         `;
-        document.body.appendChild(controls);
 
         // Estilizar el control deslizante para móviles
         const styleSheet = document.createElement('style');
