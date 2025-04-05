@@ -73,7 +73,7 @@ export function ARView() {
                 ></a-entity>
               </a-entity>
             </a-marker>
-            <a-entity camera="zoom: 1;"></a-entity>
+            <a-entity camera></a-entity>
           </a-scene>
         `;
         document.body.appendChild(sceneContainer);
@@ -254,14 +254,9 @@ export function ARView() {
         
           const modelEntity = document.querySelector('[gltf-model]');
           if (modelEntity) {
-            const baseScale = 0.05;  // tu escala original
+            const baseScale = 0.05; // escala original
             const newScale = baseScale * zoomFactor;
             modelEntity.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-          }
-        
-          const camera = document.querySelector('[camera]');
-          if (camera) {
-            camera.setAttribute('camera', 'zoom', zoomFactor);
           }
         });
 
