@@ -24,38 +24,7 @@ export function ARView() {
         // Crear la escena después de que los scripts estén cargados
         const sceneContainer = document.createElement('div');
 
-        // Configurar la cámara con zoom
-        let videoTrack = null;
-        const setupCamera = async () => {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              video: {
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                facingMode: 'environment',
-                zoom: true
-              }
-            });
-            
-            videoTrack = stream.getVideoTracks()[0];
-            const capabilities = videoTrack.getCapabilities();
-            
-            // Configurar el rango de zoom si está disponible
-            if (capabilities.zoom) {
-              const zoomControl = document.querySelector('#zoom-control');
-              if (zoomControl) {
-                zoomControl.min = capabilities.zoom.min;
-                zoomControl.max = capabilities.zoom.max;
-                zoomControl.step = (capabilities.zoom.max - capabilities.zoom.min) / 20;
-                zoomControl.value = 1;
-              }
-            }
-          } catch (error) {
-            console.error('Error al configurar la cámara:', error);
-          }
-        };
-
-        setupCamera();
+       
 
         sceneContainer.style.position = 'fixed';
         sceneContainer.style.top = '0';
@@ -98,6 +67,7 @@ export function ARView() {
                 gltf-model="#model"
                 class="clickable"
                 visible="true"
+                camera="zoom: 1;"
               >
                 <a-entity
                   animation="property: rotation; from: 0 0 0; to: 0 360 0; dur: 8000; easing: linear; loop: true"
@@ -279,33 +249,20 @@ export function ARView() {
         const zoomControl = controls.querySelector('#zoom-control');
         const zoomValue = controls.querySelector('#zoom-value');
 
-        zoomControl.addEventListener('input', async (event) => {
+        zoomControl.addEventListener('input', (event) => {
           const zoomFactor = parseFloat(event.target.value);
           zoomValue.textContent = `${zoomFactor}x`;
-          
-          if (videoTrack && videoTrack.getCapabilities().zoom) {
-            try {
-              await videoTrack.applyConstraints({
-                advanced: [{ zoom: zoomFactor }]
-              });
-            } catch (error) {
-              console.error('Error al aplicar zoom:', error);
-              // Fallback al zoom por escala
-              const modelEntity = document.querySelector('[gltf-model]');
-              if (modelEntity) {
-                const baseScale = 0.05;
-                const newScale = baseScale * zoomFactor;
-                modelEntity.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-              }
-            }
-          } else {
-            // Fallback al zoom por escala
-            const modelEntity = document.querySelector('[gltf-model]');
-            if (modelEntity) {
-              const baseScale = 0.05;
-              const newScale = baseScale * zoomFactor;
-              modelEntity.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
-            }
+        
+          const modelEntity = document.querySelector('[gltf-model]');
+          if (modelEntity) {
+            const baseScale = 0.05;  // tu escala original
+            const newScale = baseScale * zoomFactor;
+            modelEntity.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+          }
+        
+          const camera = document.querySelector('[camera]');
+          if (camera) {
+            camera.setAttribute('camera', 'zoom', zoomFactor);
           }
         });
 
