@@ -1,6 +1,43 @@
 import { useEffect } from 'react';
 
 export function ARView() {
+  function setupLogOverlay() {
+    const logBox = document.createElement('div');
+    logBox.id = 'log-overlay';
+    logBox.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      max-height: 40%;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.8);
+      color: lime;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      z-index: 9999;
+      white-space: pre-wrap;
+    `;
+    document.body.appendChild(logBox);
+  
+    const appendLog = (type, args) => {
+      const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ');
+      const line = document.createElement('div');
+      line.textContent = `[${type.toUpperCase()}] ${msg}`;
+      line.style.color = type === 'error' ? 'red' : type === 'warn' ? 'orange' : 'lime';
+      logBox.appendChild(line);
+      logBox.scrollTop = logBox.scrollHeight;
+    };
+  
+    ['log', 'warn', 'error'].forEach((type) => {
+      const original = console[type];
+      console[type] = (...args) => {
+        appendLog(type, args);
+        original.apply(console, args);
+      };
+    });
+  }
   useEffect(() => {
     const loadScripts = async () => {
       if (!window.AFRAME) {
@@ -75,7 +112,12 @@ export function ARView() {
         div.innerHTML = `
           <a-scene embedded switch-camera
             arjs="sourceType:webcam;debugUIEnabled:false;detectionMode:mono_and_matrix;matrixCodeType:3x3_HAMMING63;"
-            renderer="antialias:true;alpha:true;logarithmicDepthBuffer:true;"
+            renderer="antialias:true;alpha:true;logarithmicDepthBuffer:true;
+                    colorManagement: true; 
+                    sortObjects: true;
+                    physicallyCorrectLights: false;
+                    gammaOutput: true;
+                    exposure: 2.0;"
             vr-mode-ui="enabled:false"
             loading-screen="enabled:false">
             <a-assets>
@@ -100,7 +142,7 @@ export function ARView() {
         });
       };
     };
-
+    setupLogOverlay();
     loadScripts();
   }, []);
 
