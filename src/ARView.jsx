@@ -5,7 +5,15 @@ export function ARView() {
     const loadScripts = async () => {
       if (document.querySelector('script[src*="aframe"]')) return;
 
-      // Cargar A-Frame
+      // 1) WebRTC Adapter (imprescindible)
+      await new Promise((resolve) => {
+        const adapterScript = document.createElement('script');
+        adapterScript.src = 'https://webrtc.github.io/adapter/adapter-latest.js';
+        adapterScript.onload = resolve;
+        document.head.appendChild(adapterScript);
+      });
+
+      // 2) A-Frame
       await new Promise((resolve) => {
         const aframe = document.createElement('script');
         aframe.src = 'https://cdn.jsdelivr.net/gh/aframevr/aframe@1.4.0/dist/aframe-master.min.js';
@@ -13,7 +21,7 @@ export function ARView() {
         document.head.appendChild(aframe);
       });
 
-      // Cargar AR.js
+      // 3) AR.js
       await new Promise((resolve) => {
         const arjs = document.createElement('script');
         arjs.src = 'https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js';
@@ -21,7 +29,13 @@ export function ARView() {
         document.head.appendChild(arjs);
       });
 
-      // Escena AR
+      // 4) Elemento video oculto (requerido por AR.js y cambio de cámara)
+      const videoEl = document.createElement('video');
+      videoEl.id = 'arjs-video';
+      videoEl.style.display = 'none';
+      document.body.appendChild(videoEl);
+
+      // 5) Escena AR completa
       const sceneContainer = document.createElement('div');
       sceneContainer.style.cssText = `
         position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000;
@@ -30,12 +44,12 @@ export function ARView() {
         <a-scene embedded
           arjs="sourceType:webcam;debugUIEnabled:false;detectionMode:mono_and_matrix;matrixCodeType:3x3;"
           renderer="antialias: true; 
-                     alpha: true; 
-                     colorManagement: true; 
-                     sortObjects: true;
-                     physicallyCorrectLights: false;
-                     gammaOutput: true;
-                     exposure: 2.0;"
+                    alpha: true; 
+                    colorManagement: true; 
+                    sortObjects: true;
+                    physicallyCorrectLights: false;
+                    gammaOutput: true;
+                    exposure: 2.0;"
           vr-mode-ui="enabled:false"
           loading-screen="enabled:false">
           <a-assets>
@@ -53,7 +67,7 @@ export function ARView() {
       `;
       document.body.appendChild(sceneContainer);
 
-      // Botón para cambiar cámara (basado en repo)
+      // 6) Botón Switch Camera (funcionalidad tomada del repo)
       const switchCameraBtn = document.createElement('button');
       switchCameraBtn.textContent = 'Switch Camera';
       switchCameraBtn.style.cssText = `
@@ -65,26 +79,23 @@ export function ARView() {
       let currentFacingMode = 'environment';
 
       switchCameraBtn.onclick = () => {
-        const video = document.querySelector('#arjs-video');
-        if (!video) return;
-
         currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
 
         navigator.mediaDevices.getUserMedia({
           video: { facingMode: currentFacingMode }
         }).then(stream => {
-          const oldStream = video.srcObject;
+          const oldStream = videoEl.srcObject;
           if (oldStream) oldStream.getTracks().forEach(t => t.stop());
 
-          video.srcObject = stream;
-          video.play();
+          videoEl.srcObject = stream;
+          videoEl.play();
 
           const event = new CustomEvent('camera-init', { detail: { stream } });
           window.dispatchEvent(event);
         }).catch(console.error);
       };
 
-      // Control zoom mediante escala del modelo
+      // 7) Control de zoom mediante escala del modelo
       const controls = document.createElement('div');
       controls.style.cssText = `
         position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -96,6 +107,7 @@ export function ARView() {
         <span id="zoom-value">1x</span>
       `;
 
+      // Insertar controles cuando escena cargue completamente
       document.querySelector('a-scene').addEventListener('loaded', () => {
         document.body.appendChild(controls);
       });
@@ -115,9 +127,9 @@ export function ARView() {
         }
       });
 
-      // Limpiar al desmontar
+      // 8) Limpiar todo al desmontar componente
       return () => {
-        [sceneContainer, controls, switchCameraBtn].forEach(el => el.remove());
+        [sceneContainer, controls, switchCameraBtn, videoEl].forEach(el => el.remove());
       };
     };
 
