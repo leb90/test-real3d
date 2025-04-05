@@ -121,7 +121,8 @@ export function ARView() {
             vr-mode-ui="enabled:false"
             loading-screen="enabled:false">
             <a-assets>
-              <a-asset-item id="model" src="/scene.glb"></a-asset-item>
+              <a-asset-item id="model" src="https://cdn.glitch.com/06bd98b4-97ee-4c07-a546-fe39ca205034%2Fbowser.glb"></a-asset-item>
+
             </a-assets>
             <a-marker preset="hiro" smooth="true">
               <a-entity position="0 0.05 0" scale="0.05 0.05 0.05" rotation="-90 0 0"
